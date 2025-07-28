@@ -1,0 +1,2427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Receitas - Sistema Online com Firebase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .status-vencida { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
+        .status-vencendo { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .status-valida { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
+        .online-indicator { animation: pulse 2s infinite; }
+        .firebase-connected { animation: firebaseGlow 3s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes firebaseGlow { 0%, 100% { box-shadow: 0 0 5px #ff6b35; } 50% { box-shadow: 0 0 20px #ff6b35; } }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .config-box { background: #f8f9fa; border: 1px solid #e9ecef; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header com Status Firebase -->
+        <div class="text-center mb-8">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 rounded-xl p-6 mb-4 shadow-lg">
+                <h1 class="text-4xl font-bold text-white mb-2">Controle de Receitas TricoMaster</h1>
+                <p class="text-blue-200 text-sm">Sistema Profissional com Firebase em Tempo Real</p>
+                <p class="text-blue-300 text-xs mt-2" id="versaoHeader">Versão 60</p>
+            </div>
+            
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-blue-500 rounded-full" id="firebaseStatus"></div>
+                    <span class="text-sm text-gray-600" id="connectionStatus">Sistema Local - Carregando...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="appContent">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl p-6 card-shadow text-white">
+                    <div class="text-center">
+                        <div class="bg-yellow-300 bg-opacity-30 p-3 rounded-full inline-block mb-3">
+                            <span class="text-2xl">⚠️</span>
+                        </div>
+                        <p class="text-sm font-medium text-yellow-100 mb-2">Vencendo (7 dias)</p>
+                        <p class="text-3xl font-bold text-white mb-1" id="vencendo">2</p>
+                        <p class="text-xs text-yellow-200" id="percentVencendo">40% do total</p>
+                        <div class="mt-3 pt-3 border-t border-yellow-300 border-opacity-30">
+                            <p class="text-xs text-yellow-100 font-medium mb-1">Por médico:</p>
+                            <div id="vencendoPorMedico" class="text-xs text-yellow-200">
+                                <div>Dra Luciane: 2</div>
+                            </div>
+                            <div class="border-t border-yellow-300 border-opacity-30 pt-2 mt-2">
+                                <p class="text-xs text-yellow-100 font-medium mb-1">Por unidade:</p>
+                                <div id="vencendoPorUnidade" class="text-xs text-yellow-200">
+                                    <div>Tatuapé: 1</div>
+                                    <div>Santana: 1</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 card-shadow text-white">
+                    <div class="text-center">
+                        <div class="bg-orange-400 bg-opacity-30 p-3 rounded-full inline-block mb-3">
+                            <span class="text-2xl">🔥</span>
+                        </div>
+                        <p class="text-sm font-medium text-orange-100 mb-2">Vencendo Hoje</p>
+                        <p class="text-3xl font-bold text-white mb-1" id="vencendoHoje">0</p>
+                        <p class="text-xs text-orange-200" id="percentVencendoHoje">0% do total</p>
+                        <div class="mt-3 pt-3 border-t border-orange-300 border-opacity-30">
+                            <p class="text-xs text-orange-100 font-medium mb-1">Por médico:</p>
+                            <div id="vencendoHojePorMedico" class="text-xs text-orange-200">
+                                <div>Nenhuma hoje</div>
+                            </div>
+                            <div class="border-t border-orange-300 border-opacity-30 pt-2 mt-2">
+                                <p class="text-xs text-orange-100 font-medium mb-1">Por unidade:</p>
+                                <div id="vencendoHojePorUnidade" class="text-xs text-orange-200">
+                                    <div>Nenhuma hoje</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 card-shadow text-white">
+                    <div class="text-center">
+                        <div class="bg-red-400 bg-opacity-30 p-3 rounded-full inline-block mb-3">
+                            <span class="text-2xl">🚨</span>
+                        </div>
+                        <p class="text-sm font-medium text-red-100 mb-2">Vencidas</p>
+                        <p class="text-3xl font-bold text-white mb-1" id="vencidas">1</p>
+                        <p class="text-xs text-red-200" id="percentVencidas">20% do total</p>
+                        <div class="mt-3 pt-3 border-t border-red-300 border-opacity-30">
+                            <p class="text-xs text-red-100 font-medium mb-1">Por médico:</p>
+                            <div id="vencidasPorMedico" class="text-xs text-red-200">
+                                <div>Dra Luciane: 1</div>
+                            </div>
+                            <div class="border-t border-red-300 border-opacity-30 pt-2 mt-2">
+                                <p class="text-xs text-red-100 font-medium mb-1">Por unidade:</p>
+                                <div id="vencidasPorUnidade" class="text-xs text-red-200">
+                                    <div>Tatuapé: 1</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 card-shadow text-white">
+                    <div class="text-center">
+                        <div class="bg-blue-400 bg-opacity-30 p-3 rounded-full inline-block mb-3">
+                            <span class="text-2xl">📋</span>
+                        </div>
+                        <p class="text-sm font-medium text-blue-100 mb-2">Receitas Emitidas</p>
+                        <p class="text-3xl font-bold text-white mb-1" id="totalReceitas">5</p>
+                        <p class="text-xs text-blue-200">100% do total</p>
+                        <div class="mt-3 pt-3 border-t border-blue-300 border-opacity-30">
+                            <p class="text-xs text-blue-100 font-medium mb-1">Por médico:</p>
+                            <div id="totalPorMedico" class="text-xs text-blue-200">
+                                <div>Dra Luciane: 5</div>
+                            </div>
+                            <div class="border-t border-blue-300 border-opacity-30 pt-2 mt-2">
+                                <p class="text-xs text-blue-100 font-medium mb-1">Por unidade:</p>
+                                <div id="totalPorUnidade" class="text-xs text-blue-200">
+                                    <div>Tatuapé: 3</div>
+                                    <div>Santana: 2</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Sistema -->
+            <div class="bg-white rounded-xl p-4 card-shadow mb-8">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span class="text-sm font-medium text-gray-700">Sistema Local</span>
+                        <span class="text-xs text-gray-500" id="ultimaSync">Carregando...</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="criarBackupManual()" 
+                                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200">
+                            💾 Backup Manual
+                        </button>
+                        <button onclick="restaurarBackup()" 
+                                class="bg-green-800 hover:bg-green-900 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200">
+                            📥 Restaurar Arquivo
+                        </button>
+                        <button onclick="abrirConfiguracoes()" 
+                                class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200">
+                            ⚙️ Configurações
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário -->
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-8 card-shadow mb-8">
+                <h2 class="text-xl font-semibold text-blue-800 mb-6 bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Nova Receita</h2>
+                <form id="receitaForm" class="space-y-6">
+                    <!-- Todos os campos em uma única linha -->
+                    <div class="grid grid-cols-1 lg:grid-cols-7 gap-4">
+                        <div class="lg:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Paciente</label>
+                            <input type="text" id="nomePaciente" required 
+                                   class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm"
+                                   oninput="formatarNome(this)">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data de Emissão</label>
+                            <input type="date" id="dataReceita" required 
+                                   class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Validade</label>
+                            <select id="validadeMeses" required 
+                                    class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm"
+                                    onchange="atualizarDataVencimento()">
+                            </select>
+                            <div id="dataVencimento" class="text-xs text-gray-500 mt-1 text-center"></div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Médico(a)</label>
+                            <select id="medicaSelect" required
+                                    class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm">
+                                <option value="">Selecionar...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Unidade</label>
+                            <select id="unidadeSelect" required
+                                    class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm">
+                                <option value="">Selecionar...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Emissor</label>
+                            <select id="usuarioAtual" required
+                                    class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-0 focus:border-blue-500 bg-white text-sm">
+                                <option value="">Selecionar...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-end">
+                            <button type="submit" id="btnSalvar"
+                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-3 rounded-lg transition duration-200 flex items-center justify-center gap-1 min-h-[44px] text-sm">
+                                💾 Salvar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista de Receitas -->
+            <div class="bg-white rounded-xl p-8 card-shadow">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800">Receitas Emitidas</h2>
+                    <div class="flex gap-2">
+                        <button onclick="imprimirRelatorioFiltrado()" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded text-sm transition duration-200">
+                            📋 Relatório
+                        </button>
+                        <button onclick="exportarParaExcel()" 
+                                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded text-sm transition duration-200">
+                            📊 Exportar Excel
+                        </button>
+                        <button onclick="importarExcel()" 
+                                class="bg-green-800 hover:bg-green-900 text-white font-semibold py-2 px-4 rounded text-sm transition duration-200">
+                            📥 Importar Excel
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filtros -->
+                <div class="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 rounded-lg items-end">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Nome</label>
+                        <input type="text" id="filtroNome" placeholder="Digite o nome..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                    </div>
+                    <div class="min-w-[120px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="filtroStatus"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                            <option value="">Todos</option>
+                            <option value="valida">Válidas</option>
+                            <option value="vencendo">Vencendo</option>
+                            <option value="vencida">Vencidas</option>
+                        </select>
+                    </div>
+                    <div class="min-w-[140px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Médico</label>
+                        <select id="filtroMedico"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="min-w-[120px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                        <select id="filtroUnidade"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="min-w-[140px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
+                        <input type="date" id="filtroDataInicial"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                    </div>
+                    <div class="min-w-[140px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
+                        <input type="date" id="filtroDataFinal"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-0 focus:border-blue-500">
+                    </div>
+                    <div class="min-w-[120px]">
+                        <button onclick="limparFiltros()" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm transition duration-200 min-h-[38px]">
+                            Limpar Filtros
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tabela -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Paciente</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Data Emissão</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Vencimento</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Status</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Médico(a)</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Unidade</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Emissor</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Renovar</th>
+                                <th class="px-4 py-3 text-center font-medium text-gray-700">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaReceitas">
+                            <tr class="bg-red-50 border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-medium text-gray-900">Maria Silva Santos</td>
+                                <td class="px-4 py-3 text-gray-600">15/10/2024</td>
+                                <td class="px-4 py-3 text-gray-600">15/11/2024</td>
+                                <td class="px-4 py-3">
+                                    <span class="text-xs font-medium px-2 py-1 rounded-full text-red-600 bg-red-100">Vencida</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Dra Luciane</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Tatuapé</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Eduardo</td>
+                                <td class="px-4 py-3">
+                                    <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-0 focus:border-blue-500">
+                                        <option value="">Renovar...</option>
+                                        <option value="1">1 mês</option>
+                                        <option value="2">2 meses</option>
+                                        <option value="3">3 meses</option>
+                                        <option value="4">4 meses</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                        Excluir
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="bg-yellow-50 border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-medium text-gray-900">João Carlos Oliveira</td>
+                                <td class="px-4 py-3 text-gray-600">20/11/2024</td>
+                                <td class="px-4 py-3 text-gray-600">20/12/2024</td>
+                                <td class="px-4 py-3">
+                                    <span class="text-xs font-medium px-2 py-1 rounded-full text-yellow-600 bg-yellow-100">Vencendo</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Dra Luciane</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Santana</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Leticia</td>
+                                <td class="px-4 py-3">
+                                    <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-0 focus:border-blue-500">
+                                        <option value="">Renovar...</option>
+                                        <option value="1">1 mês</option>
+                                        <option value="2">2 meses</option>
+                                        <option value="3">3 meses</option>
+                                        <option value="4">4 meses</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                        Excluir
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-medium text-gray-900">Ana Paula Costa</td>
+                                <td class="px-4 py-3 text-gray-600">01/12/2024</td>
+                                <td class="px-4 py-3 text-gray-600">01/03/2025</td>
+                                <td class="px-4 py-3">
+                                    <span class="text-xs font-medium px-2 py-1 rounded-full text-green-600 bg-green-100">Válida</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Dra Luciane</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Tatuapé</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Regina</td>
+                                <td class="px-4 py-3">
+                                    <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-0 focus:border-blue-500">
+                                        <option value="">Renovar...</option>
+                                        <option value="1">1 mês</option>
+                                        <option value="2">2 meses</option>
+                                        <option value="3">3 meses</option>
+                                        <option value="4">4 meses</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                        Excluir
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-medium text-gray-900">Pedro Henrique Lima</td>
+                                <td class="px-4 py-3 text-gray-600">10/12/2024</td>
+                                <td class="px-4 py-3 text-gray-600">10/02/2025</td>
+                                <td class="px-4 py-3">
+                                    <span class="text-xs font-medium px-2 py-1 rounded-full text-green-600 bg-green-100">Válida</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Dra Luciane</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Santana</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Matheus</td>
+                                <td class="px-4 py-3">
+                                    <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-0 focus:border-blue-500">
+                                        <option value="">Renovar...</option>
+                                        <option value="1">1 mês</option>
+                                        <option value="2">2 meses</option>
+                                        <option value="3">3 meses</option>
+                                        <option value="4">4 meses</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                        Excluir
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="bg-yellow-50 border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-medium text-gray-900">Carla Fernanda Souza</td>
+                                <td class="px-4 py-3 text-gray-600">18/12/2024</td>
+                                <td class="px-4 py-3 text-gray-600">18/01/2025</td>
+                                <td class="px-4 py-3">
+                                    <span class="text-xs font-medium px-2 py-1 rounded-full text-yellow-600 bg-yellow-100">Vencendo</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Dra Luciane</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Tatuapé</td>
+                                <td class="px-4 py-3 text-gray-600 text-xs">Tamares</td>
+                                <td class="px-4 py-3">
+                                    <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-0 focus:border-blue-500">
+                                        <option value="">Renovar...</option>
+                                        <option value="1">1 mês</option>
+                                        <option value="2">2 meses</option>
+                                        <option value="3">3 meses</option>
+                                        <option value="4">4 meses</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                        Excluir
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações -->
+    <div id="modalConfiguracoes" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">⚙️ Configurações do Sistema</h2>
+                <button onclick="fecharConfiguracoes()" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">×</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Médicos -->
+                <div class="config-box rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        👨‍⚕️ Gerenciar Médicos
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="novoMedico" placeholder="Nome do médico(a)..."
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-400">
+                            <button onclick="adicionarMedicoConfig()" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Adicionar
+                            </button>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div id="listaMedicos" class="divide-y divide-gray-200">
+                                <!-- Lista será preenchida dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emissores -->
+                <div class="config-box rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        👤 Gerenciar Emissores
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="novoEmissor" placeholder="Nome do emissor..."
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-400">
+                            <button onclick="adicionarEmissorConfig()" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Adicionar
+                            </button>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div id="listaEmissores" class="divide-y divide-gray-200">
+                                <!-- Lista será preenchida dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unidades -->
+                <div class="config-box rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        🏢 Gerenciar Unidades
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="novaUnidade" placeholder="Nome da unidade..."
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-400">
+                            <button onclick="adicionarUnidadeConfig()" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Adicionar
+                            </button>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div id="listaUnidades" class="divide-y divide-gray-200">
+                                <!-- Lista será preenchida dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validades -->
+                <div class="config-box rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        📅 Gerenciar Validades
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="number" id="novaValidade" placeholder="Meses..." min="1" max="12"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-400">
+                            <button onclick="adicionarValidadeConfig()" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Adicionar
+                            </button>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div id="listaValidades" class="divide-y divide-gray-200">
+                                <!-- Lista será preenchida dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Versão do Sistema -->
+                <div class="config-box rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        🔢 Versão do Sistema
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="novaVersao" placeholder="Ex: Versão 61"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-400">
+                            <button onclick="atualizarVersao()" 
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Atualizar
+                            </button>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            <p>Versão atual: <span id="versaoAtual" class="font-medium">Versão 60</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
+                <button onclick="fecharConfiguracoes()" 
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                    Cancelar
+                </button>
+                <button onclick="salvarConfiguracoes()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                    💾 Salvar Configurações
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Integration -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxP2TlkzfWpbtxI-ybqWpB26LEdzvhmRI",
+            authDomain: "controle-receita.firebaseapp.com",
+            projectId: "controle-receita",
+            storageBucket: "controle-receita.firebasestorage.app",
+            messagingSenderId: "5535303383",
+            appId: "1:5535303383:web:95500c3bfc1bf3a8f85292"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        console.log('🔥 Firebase inicializado com sucesso!');
+        
+        // Global variables
+        let receitas = [];
+        let firebaseConnected = false;
+        let syncInProgress = false;
+        
+        // Set current date
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        document.getElementById('dataReceita').value = `${ano}-${mes}-${dia}`;
+        
+        // Function to update expiration date display
+        window.atualizarDataVencimento = function() {
+            const dataReceita = document.getElementById('dataReceita').value;
+            const validadeMeses = document.getElementById('validadeMeses').value;
+            const displayElement = document.getElementById('dataVencimento');
+            
+            if (dataReceita && validadeMeses) {
+                const [ano, mes, dia] = dataReceita.split('-');
+                const dataVencimento = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(validadeMeses), parseInt(dia));
+                
+                const mesNome = [
+                    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+                ][dataVencimento.getMonth()];
+                
+                displayElement.textContent = `Vence: ${dataVencimento.getDate()}/${mesNome}/${dataVencimento.getFullYear()}`;
+                displayElement.className = 'text-xs text-blue-600 mt-1 text-center font-medium';
+            } else {
+                displayElement.textContent = '';
+            }
+        }
+        
+        // Update expiration date when emission date changes
+        document.getElementById('dataReceita').addEventListener('change', atualizarDataVencimento);
+        
+        // Initialize Firebase connection and load data
+        async function inicializarFirebase() {
+            try {
+                console.log('🔥 Conectando ao Firebase...');
+                
+                // Test Firebase connection
+                const testQuery = query(collection(db, 'receitas'));
+                await getDocs(testQuery);
+                
+                firebaseConnected = true;
+                console.log('✅ Firebase conectado com sucesso!');
+                
+                // Setup real-time listeners
+                setupFirebaseListeners();
+                
+                // Load data from Firebase
+                await carregarDadosFirebase();
+                
+                atualizarStatusSistema();
+                
+            } catch (error) {
+                console.error('❌ Erro ao conectar Firebase:', error);
+                firebaseConnected = false;
+                
+                // Fallback to localStorage
+                console.log('📱 Usando modo local como fallback...');
+                carregarDados();
+                atualizarStatusSistema();
+            }
+        }
+
+        // Setup Firebase real-time listeners
+        function setupFirebaseListeners() {
+            if (!firebaseConnected) return;
+            
+            // Listen to receitas changes
+            const receitasQuery = query(collection(db, 'receitas'), orderBy('dataAdicao', 'desc'));
+            onSnapshot(receitasQuery, (snapshot) => {
+                console.log('🔄 Dados atualizados em tempo real');
+                receitas = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // Always update UI when Firebase data changes
+                atualizarDashboard();
+                renderizarReceitas();
+                atualizarFiltros();
+                atualizarStatusSistema();
+            });
+            
+            // Listen to medicos changes
+            onSnapshot(collection(db, 'medicos'), (snapshot) => {
+                medicos = snapshot.docs.map(doc => doc.data().nome);
+                atualizarSelectMedicos();
+            });
+            
+            // Listen to emissores changes
+            onSnapshot(collection(db, 'emissores'), (snapshot) => {
+                emissores = snapshot.docs.map(doc => doc.data().nome);
+                atualizarSelectEmissores();
+            });
+        }
+
+        // Load data from Firebase
+        async function carregarDadosFirebase() {
+            if (!firebaseConnected) return;
+            
+            try {
+                // Load receitas
+                const receitasSnapshot = await getDocs(query(collection(db, 'receitas'), orderBy('dataAdicao', 'desc')));
+                receitas = receitasSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // Load medicos
+                const medicosSnapshot = await getDocs(collection(db, 'medicos'));
+                medicos = medicosSnapshot.docs.map(doc => doc.data().nome);
+                
+                // Load emissores
+                const emissoresSnapshot = await getDocs(collection(db, 'emissores'));
+                if (emissoresSnapshot.empty) {
+                    // Initialize default emissores if none exist
+                    const defaultEmissores = ['Eduardo', 'Leticia', 'Luciane', 'Matheus', 'Regina', 'Tamares'];
+                    for (const emissor of defaultEmissores) {
+                        await addDoc(collection(db, 'emissores'), { nome: emissor });
+                    }
+                    emissores = defaultEmissores;
+                } else {
+                    emissores = emissoresSnapshot.docs.map(doc => doc.data().nome);
+                }
+                
+                // Update UI
+                atualizarDashboard();
+                renderizarReceitas();
+                atualizarSelectMedicos();
+                atualizarSelectEmissores();
+                atualizarFiltros();
+                
+                console.log('✅ Dados carregados do Firebase:', receitas.length, 'receitas');
+                
+            } catch (error) {
+                console.error('❌ Erro ao carregar dados do Firebase:', error);
+            }
+        }
+
+        // Load data from localStorage on page load
+        window.addEventListener('load', () => {
+            // Try Firebase first, fallback to localStorage
+            inicializarFirebase().then(() => {
+                carregarMedicos();
+                carregarEmissores();
+                carregarConfiguracoes();
+            });
+        });
+        
+        // Load data from localStorage
+        function carregarDados() {
+            const dadosSalvos = localStorage.getItem('receitas');
+            if (dadosSalvos) {
+                try {
+                    receitas = JSON.parse(dadosSalvos);
+                    console.log('✅ Dados carregados:', receitas.length, 'receitas');
+                } catch (error) {
+                    console.error('❌ Erro ao carregar dados:', error);
+                    receitas = [];
+                }
+            }
+            
+            // Update UI
+            atualizarDashboard();
+            renderizarReceitas();
+            atualizarFiltros();
+        }
+        
+        // Save data to Firebase or localStorage
+        async function salvarDados() {
+            try {
+                // Always save to localStorage as backup
+                localStorage.setItem('receitas', JSON.stringify(receitas));
+                
+                if (firebaseConnected) {
+                    console.log('🔥 Dados salvos no Firebase e localStorage');
+                } else {
+                    console.log('💾 Dados salvos no localStorage');
+                }
+                
+                atualizarStatusSistema();
+            } catch (error) {
+                console.error('❌ Erro ao salvar dados:', error);
+                alert('Erro ao salvar dados!');
+            }
+        }
+
+        // Save receita to Firebase
+        async function salvarReceitaFirebase(receita) {
+            if (!firebaseConnected) return null;
+            
+            try {
+                const docRef = await addDoc(collection(db, 'receitas'), receita);
+                console.log('🔥 Receita salva no Firebase:', docRef.id);
+                return docRef.id;
+            } catch (error) {
+                console.error('❌ Erro ao salvar receita no Firebase:', error);
+                throw error;
+            }
+        }
+
+        // Update receita in Firebase
+        async function atualizarReceitaFirebase(receitaId, dadosAtualizados) {
+            if (!firebaseConnected) return;
+            
+            try {
+                await updateDoc(doc(db, 'receitas', receitaId), dadosAtualizados);
+                console.log('🔥 Receita atualizada no Firebase:', receitaId);
+            } catch (error) {
+                console.error('❌ Erro ao atualizar receita no Firebase:', error);
+                throw error;
+            }
+        }
+
+        // Delete receita from Firebase
+        async function removerReceitaFirebase(receitaId) {
+            if (!firebaseConnected) return;
+            
+            try {
+                await deleteDoc(doc(db, 'receitas', receitaId));
+                console.log('🔥 Receita removida do Firebase:', receitaId);
+            } catch (error) {
+                console.error('❌ Erro ao remover receita do Firebase:', error);
+                throw error;
+            }
+        }
+        
+        // Update system status
+        function atualizarStatusSistema() {
+            const statusElement = document.getElementById('connectionStatus');
+            const firebaseStatusElement = document.getElementById('firebaseStatus');
+            const ultimaSyncElement = document.getElementById('ultimaSync');
+            
+            if (firebaseConnected) {
+                statusElement.textContent = `🔥 Firebase Online - ${receitas.length} receitas`;
+                firebaseStatusElement.className = 'w-3 h-3 bg-green-500 rounded-full online-indicator firebase-connected';
+                ultimaSyncElement.textContent = `Sincronizado: ${new Date().toLocaleTimeString('pt-BR')}`;
+            } else {
+                statusElement.textContent = `📱 Sistema Local - ${receitas.length} receitas`;
+                firebaseStatusElement.className = 'w-3 h-3 bg-blue-500 rounded-full';
+                ultimaSyncElement.textContent = `Local: ${new Date().toLocaleTimeString('pt-BR')}`;
+            }
+        }
+        
+        // Calculate status function
+        function calcularStatus(dataReceita, validadeMeses) {
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            
+            const [ano, mes, dia] = dataReceita.split('-');
+            const dataVencimento = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(validadeMeses), parseInt(dia));
+            dataVencimento.setHours(0, 0, 0, 0);
+            
+            const diasParaVencer = Math.ceil((dataVencimento - hoje) / (1000 * 60 * 60 * 24));
+            
+            if (diasParaVencer < 0) return 'vencida';
+            if (diasParaVencer <= 7) return 'vencendo';
+            return 'valida';
+        }
+        
+        // Generate unique ID
+        function gerarId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+        
+        // Update dashboard
+        function atualizarDashboard() {
+            let vencendo = 0;
+            let vencendoHoje = 0;
+            let vencidas = 0;
+            let total = receitas.length;
+            
+            // Contadores por médico e unidade
+            let vencendoPorMedico = {};
+            let vencendoHojePorMedico = {};
+            let vencidasPorMedico = {};
+            let totalPorMedico = {};
+            
+            let vencendoPorUnidade = {};
+            let vencendoHojePorUnidade = {};
+            let vencidasPorUnidade = {};
+            let totalPorUnidade = {};
+            
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            
+            receitas.forEach(receita => {
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                const medico = receita.medica || 'Sem médico';
+                const unidade = receita.unidade || 'Sem unidade';
+                
+                // Inicializar contadores do médico se não existir
+                if (!totalPorMedico[medico]) {
+                    totalPorMedico[medico] = 0;
+                    vencendoPorMedico[medico] = 0;
+                    vencendoHojePorMedico[medico] = 0;
+                    vencidasPorMedico[medico] = 0;
+                }
+                
+                // Inicializar contadores da unidade se não existir
+                if (!totalPorUnidade[unidade]) {
+                    totalPorUnidade[unidade] = 0;
+                    vencendoPorUnidade[unidade] = 0;
+                    vencendoHojePorUnidade[unidade] = 0;
+                    vencidasPorUnidade[unidade] = 0;
+                }
+                
+                totalPorMedico[medico]++;
+                totalPorUnidade[unidade]++;
+                
+                const [ano, mes, dia] = receita.dataReceita.split('-');
+                const dataVencimento = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(receita.validadeMeses), parseInt(dia));
+                dataVencimento.setHours(0, 0, 0, 0);
+                
+                const diasParaVencer = Math.ceil((dataVencimento - hoje) / (1000 * 60 * 60 * 24));
+                
+                if (status === 'vencendo') {
+                    vencendo++;
+                    vencendoPorMedico[medico]++;
+                    vencendoPorUnidade[unidade]++;
+                }
+                if (status === 'vencida') {
+                    vencidas++;
+                    vencidasPorMedico[medico]++;
+                    vencidasPorUnidade[unidade]++;
+                }
+                if (diasParaVencer === 0) {
+                    vencendoHoje++;
+                    vencendoHojePorMedico[medico]++;
+                    vencendoHojePorUnidade[unidade]++;
+                }
+            });
+            
+            // Atualizar números principais
+            document.getElementById('vencendo').textContent = vencendo;
+            document.getElementById('vencendoHoje').textContent = vencendoHoje;
+            document.getElementById('vencidas').textContent = vencidas;
+            document.getElementById('totalReceitas').textContent = total;
+            
+            // Atualizar percentuais
+            const percentVencendo = total > 0 ? Math.round((vencendo / total) * 100) : 0;
+            const percentVencendoHoje = total > 0 ? Math.round((vencendoHoje / total) * 100) : 0;
+            const percentVencidas = total > 0 ? Math.round((vencidas / total) * 100) : 0;
+            
+            document.getElementById('percentVencendo').textContent = `${percentVencendo}% do total`;
+            document.getElementById('percentVencendoHoje').textContent = `${percentVencendoHoje}% do total`;
+            document.getElementById('percentVencidas').textContent = `${percentVencidas}% do total`;
+            
+            // Atualizar informações por médico
+            function atualizarPorMedico(elementId, dados) {
+                const elemento = document.getElementById(elementId);
+                const medicos = Object.keys(dados).filter(medico => dados[medico] > 0);
+                
+                if (medicos.length === 0) {
+                    elemento.innerHTML = '<div>Nenhuma receita</div>';
+                } else {
+                    elemento.innerHTML = medicos
+                        .sort((a, b) => dados[b] - dados[a]) // Ordenar por quantidade (maior primeiro)
+                        .map(medico => `<div>${medico}: ${dados[medico]}</div>`)
+                        .join('');
+                }
+            }
+            
+            atualizarPorMedico('vencendoPorMedico', vencendoPorMedico);
+            atualizarPorMedico('vencendoHojePorMedico', vencendoHojePorMedico);
+            atualizarPorMedico('vencidasPorMedico', vencidasPorMedico);
+            atualizarPorMedico('totalPorMedico', totalPorMedico);
+            
+            // Atualizar informações por unidade
+            atualizarPorMedico('vencendoPorUnidade', vencendoPorUnidade);
+            atualizarPorMedico('vencendoHojePorUnidade', vencendoHojePorUnidade);
+            atualizarPorMedico('vencidasPorUnidade', vencidasPorUnidade);
+            atualizarPorMedico('totalPorUnidade', totalPorUnidade);
+        }
+        
+        // Render recipes table
+        function renderizarReceitas() {
+            const tabela = document.getElementById('tabelaReceitas');
+            
+            if (receitas.length === 0) {
+                tabela.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">Nenhuma receita cadastrada ainda</td></tr>';
+                return;
+            }
+            
+            // Sort recipes: most recent first, but expired ones by oldest first
+            const receitasOrdenadas = [...receitas].sort((a, b) => {
+                const statusA = calcularStatus(a.dataReceita, a.validadeMeses);
+                const statusB = calcularStatus(b.dataReceita, b.validadeMeses);
+                
+                // If both are expired, show oldest first
+                if (statusA === 'vencida' && statusB === 'vencida') {
+                    return new Date(a.dataReceita) - new Date(b.dataReceita);
+                }
+                
+                // If one is expired and other is not, expired goes first
+                if (statusA === 'vencida' && statusB !== 'vencida') return -1;
+                if (statusA !== 'vencida' && statusB === 'vencida') return 1;
+                
+                // For all others (valid and expiring), most recent first
+                return new Date(b.dataReceita) - new Date(a.dataReceita);
+            });
+            
+            tabela.innerHTML = receitasOrdenadas.map((receita) => {
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                const statusText = status === 'vencida' ? 'Vencida' : 
+                                 status === 'vencendo' ? 'Vencendo' : 'Válida';
+                
+                const statusColor = status === 'vencida' ? 'text-red-600 bg-red-100' : 
+                                  status === 'vencendo' ? 'text-yellow-600 bg-yellow-100' : 'text-green-600 bg-green-100';
+                
+                const rowColor = status === 'vencida' ? 'bg-red-50' : 
+                               status === 'vencendo' ? 'bg-yellow-50' : '';
+                
+                return `
+                    <tr class="${rowColor} border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-900">${receita.nomePaciente}</td>
+                        <td class="px-4 py-3 text-gray-600">${receita.dataReceita.split('-').reverse().join('/')}</td>
+                        <td class="px-4 py-3 text-gray-600">${(() => {
+                            const [ano, mes, dia] = receita.dataReceita.split('-');
+                            const dataVenc = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(receita.validadeMeses), parseInt(dia));
+                            return dataVenc.toLocaleDateString('pt-BR');
+                        })()}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-xs font-medium px-2 py-1 rounded-full ${statusColor}">${statusText}</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.medica || '-'}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.unidade || '-'}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.adicionadoPor || 'Sistema'}</td>
+                        <td class="px-4 py-3">
+                            <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-gray-400"
+                                    onchange="renovarReceita('${receita.id}', this.value, this)">
+                                <option value="">Renovar...</option>
+                                <option value="1">1 mês</option>
+                                <option value="2">2 meses</option>
+                                <option value="3">3 meses</option>
+                                <option value="4">4 meses</option>
+                            </select>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="removerReceita('${receita.id}')" 
+                                    class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                Excluir
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Update filter options
+        function atualizarFiltros() {
+            // Update medico filter
+            const filtroMedico = document.getElementById('filtroMedico');
+            const medicosUnicos = [...new Set(receitas.map(r => r.medica).filter(m => m))];
+            
+            filtroMedico.innerHTML = '<option value="">Todos</option>';
+            medicosUnicos.forEach(medico => {
+                filtroMedico.innerHTML += `<option value="${medico}">${medico}</option>`;
+            });
+            
+            // Update unidade filter
+            const filtroUnidade = document.getElementById('filtroUnidade');
+            const valorAtualUnidade = filtroUnidade.value;
+            
+            filtroUnidade.innerHTML = '<option value="">Todas</option>';
+            unidades.forEach(unidade => {
+                filtroUnidade.innerHTML += `<option value="${unidade}">${unidade}</option>`;
+            });
+            
+            // Restore selected value if it still exists
+            if (unidades.includes(valorAtualUnidade)) {
+                filtroUnidade.value = valorAtualUnidade;
+            }
+        }
+        
+        // Format name function
+        window.formatarNome = function(input) {
+            let valor = input.value;
+            let palavras = valor.split(' ');
+            let palavrasFormatadas = palavras.map(palavra => {
+                if (palavra.length > 0) {
+                    return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+                }
+                return palavra;
+            });
+            input.value = palavrasFormatadas.join(' ');
+        }
+        
+        // Form submit handler
+        document.getElementById('receitaForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const usuario = document.getElementById('usuarioAtual').value.trim();
+            const medica = document.getElementById('medicaSelect').value.trim();
+            const unidade = document.getElementById('unidadeSelect').value.trim();
+            
+            if (!usuario) {
+                alert('Por favor, selecione seu nome!');
+                return;
+            }
+            
+            if (!medica) {
+                alert('Por favor, selecione o médico(a)!');
+                return;
+            }
+            
+            if (!unidade) {
+                alert('Por favor, selecione a unidade!');
+                return;
+            }
+            
+            const btnSalvar = document.getElementById('btnSalvar');
+            const originalText = btnSalvar.innerHTML;
+            btnSalvar.innerHTML = firebaseConnected ? '🔥 Salvando no Firebase...' : '💾 Salvando...';
+            btnSalvar.disabled = true;
+            
+            try {
+                const novaReceita = {
+                    nomePaciente: document.getElementById('nomePaciente').value.trim(),
+                    dataReceita: document.getElementById('dataReceita').value,
+                    validadeMeses: document.getElementById('validadeMeses').value,
+                    medica: medica,
+                    unidade: unidade,
+                    adicionadoPor: usuario,
+                    dataAdicao: new Date().toISOString()
+                };
+                
+                if (firebaseConnected) {
+                    // Save to Firebase
+                    const firebaseId = await salvarReceitaFirebase(novaReceita);
+                    if (firebaseId) {
+                        novaReceita.id = firebaseId;
+                    }
+                } else {
+                    // Generate local ID
+                    novaReceita.id = gerarId();
+                    
+                    // Add to local array
+                    receitas.unshift(novaReceita);
+                    
+                    // Save to localStorage
+                    await salvarDados();
+                    
+                    // Update UI manually (Firebase does this automatically)
+                    atualizarDashboard();
+                    renderizarReceitas();
+                    atualizarFiltros();
+                }
+                
+                // Clear form
+                document.getElementById('nomePaciente').value = '';
+                document.getElementById('validadeMeses').selectedIndex = 0;
+                document.getElementById('medicaSelect').selectedIndex = 0;
+                document.getElementById('unidadeSelect').selectedIndex = 0;
+                
+                btnSalvar.innerHTML = firebaseConnected ? '🔥 Salvo no Firebase!' : '✅ Salvo!';
+                btnSalvar.className = 'w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2';
+                
+                // Reset button
+                setTimeout(() => {
+                    btnSalvar.innerHTML = originalText;
+                    btnSalvar.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2';
+                    btnSalvar.disabled = false;
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert(firebaseConnected ? 'Erro ao salvar no Firebase!' : 'Erro ao salvar receita!');
+                btnSalvar.innerHTML = originalText;
+                btnSalvar.disabled = false;
+            }
+        });
+        
+        // Renew recipe function
+        window.renovarReceita = async function(receitaId, novaValidadeMeses, selectElement) {
+            if (!novaValidadeMeses) return;
+            
+            const usuario = document.getElementById('usuarioAtual').value.trim();
+            if (!usuario) {
+                alert('Selecione seu nome primeiro!');
+                selectElement.selectedIndex = 0;
+                return;
+            }
+            
+            try {
+                const hoje = new Date();
+                const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+                
+                const dadosAtualizados = {
+                    dataReceita: dataHoje,
+                    validadeMeses: novaValidadeMeses,
+                    renovadoPor: usuario,
+                    dataRenovacao: new Date().toISOString()
+                };
+                
+                if (firebaseConnected) {
+                    // Update in Firebase
+                    await atualizarReceitaFirebase(receitaId, dadosAtualizados);
+                } else {
+                    // Update locally
+                    const receita = receitas.find(r => r.id === receitaId);
+                    if (receita) {
+                        Object.assign(receita, dadosAtualizados);
+                        
+                        // Save changes
+                        await salvarDados();
+                        
+                        // Update UI
+                        atualizarDashboard();
+                        renderizarReceitas();
+                    }
+                }
+                
+                selectElement.selectedIndex = 0;
+                alert(`✅ Receita renovada!\nPor: ${usuario}\nNova validade: ${novaValidadeMeses} mês(es)`);
+                
+            } catch (error) {
+                console.error('Erro ao renovar:', error);
+                alert('Erro ao renovar. Tente novamente.');
+                selectElement.selectedIndex = 0;
+            }
+        }
+        
+        // Remove recipe function
+        window.removerReceita = async function(receitaId) {
+            if (confirm('Tem certeza que deseja remover esta receita?')) {
+                try {
+                    if (firebaseConnected) {
+                        // Remove from Firebase
+                        await removerReceitaFirebase(receitaId);
+                    } else {
+                        // Remove locally
+                        receitas = receitas.filter(r => r.id !== receitaId);
+                        
+                        // Save changes
+                        await salvarDados();
+                        
+                        // Update UI
+                        atualizarDashboard();
+                        renderizarReceitas();
+                        atualizarFiltros();
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao remover:', error);
+                    alert('Erro ao remover. Tente novamente.');
+                }
+            }
+        }
+        
+
+        
+        // Backup system for local storage
+        
+        // Backup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (receitas.length > 0) {
+                try {
+                    const backupSaida = {
+                        timestamp: new Date().toISOString(),
+                        receitas: receitas,
+                        total: receitas.length,
+                        tipo: 'saida_sistema'
+                    };
+                    
+                    localStorage.setItem('backupUltimaSaida', JSON.stringify(backupSaida));
+                    console.log('💾 Backup de saída criado');
+                } catch (error) {
+                    console.error('Erro no backup de saída:', error);
+                }
+            }
+        });
+        
+        window.criarBackupManual = function() {
+            if (receitas.length === 0) {
+                alert('Nenhuma receita para backup!');
+                return;
+            }
+            
+            const backup = {
+                timestamp: new Date().toISOString(),
+                receitas: receitas,
+                total: receitas.length,
+                tipo: 'manual'
+            };
+            
+            const dataStr = JSON.stringify(backup, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            
+            link.href = url;
+            link.download = `Backup_Manual_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}_${new Date().toLocaleTimeString('pt-BR').replace(/:/g, '-')}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            alert(`✅ Backup manual criado! ${backup.total} receitas`);
+        }
+        
+
+        
+        window.restaurarBackup = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const backup = JSON.parse(text);
+                    
+                    if (!backup.receitas) {
+                        alert('Arquivo inválido!');
+                        return;
+                    }
+                    
+                    const data = backup.timestamp ? new Date(backup.timestamp).toLocaleString('pt-BR') : 'Data desconhecida';
+                    const tipo = backup.tipo || 'manual';
+                    
+                    if (confirm(`Restaurar backup ${tipo} de ${data}?\n${backup.receitas.length} receitas\n\nIsso substituirá todos os dados atuais!`)) {
+                        // Replace current data
+                        receitas = backup.receitas.map(receita => ({
+                            ...receita,
+                            id: receita.id || gerarId() // Ensure all recipes have IDs
+                        }));
+                        
+                        // Save to localStorage
+                        salvarDados();
+                        
+                        // Update UI
+                        atualizarDashboard();
+                        renderizarReceitas();
+                        atualizarFiltroUsuarios();
+                        
+                        alert('✅ Backup restaurado com sucesso!');
+                    }
+                } catch (error) {
+                    console.error('Erro ao restaurar:', error);
+                    alert('Erro ao restaurar backup!');
+                }
+            };
+            
+            input.click();
+        }
+        
+        // Filter functions
+        function aplicarFiltros() {
+            const filtroNome = document.getElementById('filtroNome').value.toLowerCase();
+            const filtroStatus = document.getElementById('filtroStatus').value;
+            const filtroMedico = document.getElementById('filtroMedico').value;
+            const filtroUnidade = document.getElementById('filtroUnidade').value;
+            const filtroDataInicial = document.getElementById('filtroDataInicial').value;
+            const filtroDataFinal = document.getElementById('filtroDataFinal').value;
+            
+            let receitasFiltradas = receitas.filter(receita => {
+                // Filter by name
+                if (filtroNome && !receita.nomePaciente.toLowerCase().includes(filtroNome)) {
+                    return false;
+                }
+                
+                // Filter by status
+                if (filtroStatus) {
+                    const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                    if (status !== filtroStatus) {
+                        return false;
+                    }
+                }
+                
+                // Filter by medico
+                if (filtroMedico && receita.medica !== filtroMedico) {
+                    return false;
+                }
+                
+                // Filter by unidade
+                if (filtroUnidade && receita.unidade !== filtroUnidade) {
+                    return false;
+                }
+                
+                // Filter by date range
+                if (filtroDataInicial) {
+                    if (receita.dataReceita < filtroDataInicial) {
+                        return false;
+                    }
+                }
+                
+                if (filtroDataFinal) {
+                    if (receita.dataReceita > filtroDataFinal) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            // Sort for report: most recent first, but expired ones by oldest first
+            receitasFiltradas = receitasFiltradas.sort((a, b) => {
+                const statusA = calcularStatus(a.dataReceita, a.validadeMeses);
+                const statusB = calcularStatus(b.dataReceita, b.validadeMeses);
+                
+                // If both are expired, show oldest first
+                if (statusA === 'vencida' && statusB === 'vencida') {
+                    return new Date(a.dataReceita) - new Date(b.dataReceita);
+                }
+                
+                // If one is expired and other is not, expired goes first
+                if (statusA === 'vencida' && statusB !== 'vencida') return -1;
+                if (statusA !== 'vencida' && statusB === 'vencida') return 1;
+                
+                // For all others (valid and expiring), most recent first
+                return new Date(b.dataReceita) - new Date(a.dataReceita);
+            });
+            
+            renderizarReceitasFiltradas(receitasFiltradas);
+        }
+        
+        // Add event listeners for filters
+        document.getElementById('filtroNome').addEventListener('input', aplicarFiltros);
+        document.getElementById('filtroStatus').addEventListener('change', aplicarFiltros);
+        document.getElementById('filtroMedico').addEventListener('change', aplicarFiltros);
+        document.getElementById('filtroUnidade').addEventListener('change', aplicarFiltros);
+        document.getElementById('filtroDataInicial').addEventListener('change', aplicarFiltros);
+        document.getElementById('filtroDataFinal').addEventListener('change', aplicarFiltros);
+        
+        function renderizarReceitasFiltradas(receitasFiltradas) {
+            const tabela = document.getElementById('tabelaReceitas');
+            
+            if (receitasFiltradas.length === 0) {
+                tabela.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">Nenhuma receita encontrada com os filtros aplicados</td></tr>';
+                return;
+            }
+            
+            // Sort filtered recipes: most recent first, but expired ones by oldest first
+            const receitasOrdenadas = [...receitasFiltradas].sort((a, b) => {
+                const statusA = calcularStatus(a.dataReceita, a.validadeMeses);
+                const statusB = calcularStatus(b.dataReceita, b.validadeMeses);
+                
+                // If both are expired, show oldest first
+                if (statusA === 'vencida' && statusB === 'vencida') {
+                    return new Date(a.dataReceita) - new Date(b.dataReceita);
+                }
+                
+                // If one is expired and other is not, expired goes first
+                if (statusA === 'vencida' && statusB !== 'vencida') return -1;
+                if (statusA !== 'vencida' && statusB === 'vencida') return 1;
+                
+                // For all others (valid and expiring), most recent first
+                return new Date(b.dataReceita) - new Date(a.dataReceita);
+            });
+            
+            tabela.innerHTML = receitasOrdenadas.map((receita) => {
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                const statusText = status === 'vencida' ? 'Vencida' : 
+                                 status === 'vencendo' ? 'Vencendo' : 'Válida';
+                
+                const statusColor = status === 'vencida' ? 'text-red-600 bg-red-100' : 
+                                  status === 'vencendo' ? 'text-yellow-600 bg-yellow-100' : 'text-green-600 bg-green-100';
+                
+                const rowColor = status === 'vencida' ? 'bg-red-50' : 
+                               status === 'vencendo' ? 'bg-yellow-50' : '';
+                
+                return `
+                    <tr class="${rowColor} border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-900">${receita.nomePaciente}</td>
+                        <td class="px-4 py-3 text-gray-600">${receita.dataReceita.split('-').reverse().join('/')}</td>
+                        <td class="px-4 py-3 text-gray-600">${(() => {
+                            const [ano, mes, dia] = receita.dataReceita.split('-');
+                            const dataVenc = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(receita.validadeMeses), parseInt(dia));
+                            return dataVenc.toLocaleDateString('pt-BR');
+                        })()}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-xs font-medium px-2 py-1 rounded-full ${statusColor}">${statusText}</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.medica || '-'}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.unidade || '-'}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">${receita.adicionadoPor || 'Sistema'}</td>
+                        <td class="px-4 py-3">
+                            <select class="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-gray-400"
+                                    onchange="renovarReceita('${receita.id}', this.value, this)">
+                                <option value="">Renovar...</option>
+                                <option value="1">1 mês</option>
+                                <option value="2">2 meses</option>
+                                <option value="3">3 meses</option>
+                                <option value="4">4 meses</option>
+                            </select>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="removerReceita('${receita.id}')" 
+                                    class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                Excluir
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        window.limparFiltros = function() {
+            document.getElementById('filtroNome').value = '';
+            document.getElementById('filtroStatus').value = '';
+            document.getElementById('filtroMedico').value = '';
+            document.getElementById('filtroUnidade').value = '';
+            document.getElementById('filtroDataInicial').value = '';
+            document.getElementById('filtroDataFinal').value = '';
+            renderizarReceitas();
+        }
+        
+        window.imprimirRelatorioFiltrado = function() {
+            // Get filtered data
+            const filtroNome = document.getElementById('filtroNome').value.toLowerCase();
+            const filtroStatus = document.getElementById('filtroStatus').value;
+            const filtroMedico = document.getElementById('filtroMedico').value;
+            const filtroUnidade = document.getElementById('filtroUnidade').value;
+            const filtroDataInicial = document.getElementById('filtroDataInicial').value;
+            const filtroDataFinal = document.getElementById('filtroDataFinal').value;
+            
+            let receitasFiltradas = receitas.filter(receita => {
+                // Filter by name
+                if (filtroNome && !receita.nomePaciente.toLowerCase().includes(filtroNome)) {
+                    return false;
+                }
+                
+                // Filter by status
+                if (filtroStatus) {
+                    const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                    if (status !== filtroStatus) {
+                        return false;
+                    }
+                }
+                
+                // Filter by medico
+                if (filtroMedico && receita.medica !== filtroMedico) {
+                    return false;
+                }
+                
+                // Filter by unidade
+                if (filtroUnidade && receita.unidade !== filtroUnidade) {
+                    return false;
+                }
+                
+                // Filter by date range
+                if (filtroDataInicial) {
+                    if (receita.dataReceita < filtroDataInicial) {
+                        return false;
+                    }
+                }
+                
+                if (filtroDataFinal) {
+                    if (receita.dataReceita > filtroDataFinal) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            // Sort for report: most recent first, but expired ones by oldest first
+            receitasFiltradas = receitasFiltradas.sort((a, b) => {
+                const statusA = calcularStatus(a.dataReceita, a.validadeMeses);
+                const statusB = calcularStatus(b.dataReceita, b.validadeMeses);
+                
+                // If both are expired, show oldest first
+                if (statusA === 'vencida' && statusB === 'vencida') {
+                    return new Date(a.dataReceita) - new Date(b.dataReceita);
+                }
+                
+                // If one is expired and other is not, expired goes first
+                if (statusA === 'vencida' && statusB !== 'vencida') return -1;
+                if (statusA !== 'vencida' && statusB === 'vencida') return 1;
+                
+                // For all others (valid and expiring), most recent first
+                return new Date(b.dataReceita) - new Date(a.dataReceita);
+            });
+            
+            if (receitasFiltradas.length === 0) {
+                alert('Nenhuma receita encontrada com os filtros aplicados!');
+                return;
+            }
+            
+            const dataAtual = new Date().toLocaleDateString('pt-BR');
+            const horaAtual = new Date().toLocaleTimeString('pt-BR');
+            
+            // Build filter description
+            let filtrosAplicados = [];
+            if (filtroNome) filtrosAplicados.push(`Nome: "${filtroNome}"`);
+            if (filtroStatus) filtrosAplicados.push(`Status: ${filtroStatus === 'valida' ? 'Válidas' : filtroStatus === 'vencendo' ? 'Vencendo' : 'Vencidas'}`);
+            if (filtroMedico) filtrosAplicados.push(`Médico: ${filtroMedico}`);
+            if (filtroDataInicial) filtrosAplicados.push(`Data inicial: ${new Date(filtroDataInicial).toLocaleDateString('pt-BR')}`);
+            if (filtroDataFinal) filtrosAplicados.push(`Data final: ${new Date(filtroDataFinal).toLocaleDateString('pt-BR')}`);
+            
+            const filtroTexto = filtrosAplicados.length > 0 ? filtrosAplicados.join(' | ') : 'Sem filtros aplicados';
+            
+            let html = `
+                <html>
+                <head>
+                    <title>Relatório de Receitas - TricoMaster</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+                        th, td { padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
+                        th { background-color: #f2f2f2; font-weight: bold; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .filtros { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+                        .total { background-color: #007bff; color: white; font-weight: bold; text-align: center; }
+                        .status-vencida { background-color: #ffebee; }
+                        .status-vencendo { background-color: #fff3e0; }
+                        .status-valida { background-color: #e8f5e8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Relatório de Receitas - TricoMaster</h1>
+                        <p>Gerado em: ${dataAtual} às ${horaAtual}</p>
+                    </div>
+                    
+                    <div class="filtros">
+                        <h3>Filtros Aplicados:</h3>
+                        <p>${filtroTexto}</p>
+                        <p><strong>Total de receitas encontradas: ${receitasFiltradas.length}</strong></p>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Data Emissão</th>
+                                <th>Vencimento</th>
+                                <th>Status</th>
+                                <th>Médico(a)</th>
+                                <th>Unidade</th>
+                                <th>Emissor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            receitasFiltradas.forEach(receita => {
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                const statusText = status === 'vencida' ? 'Vencida' : 
+                                 status === 'vencendo' ? 'Vencendo' : 'Válida';
+                
+                const statusClass = status === 'vencida' ? 'status-vencida' : 
+                                  status === 'vencendo' ? 'status-vencendo' : 'status-valida';
+                
+                const [ano, mes, dia] = receita.dataReceita.split('-');
+                const dataVenc = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(receita.validadeMeses), parseInt(dia));
+                
+                html += `
+                    <tr class="${statusClass}">
+                        <td>${receita.nomePaciente}</td>
+                        <td>${receita.dataReceita.split('-').reverse().join('/')}</td>
+                        <td>${dataVenc.toLocaleDateString('pt-BR')}</td>
+                        <td><strong>${statusText}</strong></td>
+                        <td>${receita.medica || '-'}</td>
+                        <td>${receita.unidade || '-'}</td>
+                        <td>${receita.adicionadoPor || 'Sistema'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                        <tfoot>
+                            <tr class="total">
+                                <td colspan="7">TOTAL DE RECEITAS: ${receitasFiltradas.length}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </body>
+                </html>
+            `;
+            
+            const novaJanela = window.open('', '_blank');
+            novaJanela.document.write(html);
+            novaJanela.document.close();
+            novaJanela.print();
+        }
+        
+        window.exportarParaExcel = function() {
+            if (receitas.length === 0) {
+                alert('Nenhuma receita para exportar!');
+                return;
+            }
+            
+            let csvContent = '\uFEFF'; // BOM for UTF-8
+            csvContent += 'Paciente;Data de Emissão;Vencimento;Status;Médico;Unidade;Emissor\n';
+            
+            receitas.forEach(receita => {
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                const statusText = status === 'vencida' ? 'Vencida' : 
+                                 status === 'vencendo' ? 'Vencendo' : 'Válida';
+                
+                const [ano, mes, dia] = receita.dataReceita.split('-');
+                const dataVenc = new Date(parseInt(ano), parseInt(mes) - 1 + parseInt(receita.validadeMeses), parseInt(dia));
+                
+                const linha = [
+                    receita.nomePaciente,
+                    receita.dataReceita.split('-').reverse().join('/'),
+                    dataVenc.toLocaleDateString('pt-BR'),
+                    statusText,
+                    receita.medica || '-',
+                    receita.unidade || '-',
+                    receita.adicionadoPor || 'Sistema'
+                ].join(';');
+                
+                csvContent += linha + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Receitas_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('✅ Arquivo Excel exportado com sucesso!');
+        }
+
+        window.importarExcel = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv,.xlsx,.xls';
+            
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const linhas = text.split('\n').filter(linha => linha.trim());
+                    
+                    if (linhas.length < 2) {
+                        alert('❌ Arquivo vazio ou inválido!');
+                        return;
+                    }
+                    
+                    // Skip header line
+                    const dadosLinhas = linhas.slice(1);
+                    const receitasImportadas = [];
+                    let erros = [];
+                    
+                    for (let i = 0; i < dadosLinhas.length; i++) {
+                        const linha = dadosLinhas[i].trim();
+                        if (!linha) continue;
+                        
+                        const campos = linha.split(';');
+                        
+                        if (campos.length < 5) {
+                            erros.push(`Linha ${i + 2}: Dados insuficientes`);
+                            continue;
+                        }
+                        
+                        const nomePaciente = campos[0]?.trim();
+                        const dataEmissao = campos[1]?.trim();
+                        const medico = campos[4]?.trim();
+                        const unidade = campos[5]?.trim() || 'Tatuapé';
+                        const emissor = campos[6]?.trim() || 'Sistema';
+                        
+                        if (!nomePaciente || !dataEmissao || !medico) {
+                            erros.push(`Linha ${i + 2}: Campos obrigatórios vazios`);
+                            continue;
+                        }
+                        
+                        // Convert date format from DD/MM/YYYY to YYYY-MM-DD
+                        let dataFormatada;
+                        if (dataEmissao.includes('/')) {
+                            const [dia, mes, ano] = dataEmissao.split('/');
+                            dataFormatada = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+                        } else {
+                            dataFormatada = dataEmissao;
+                        }
+                        
+                        // Validate date
+                        const dataTest = new Date(dataFormatada);
+                        if (isNaN(dataTest.getTime())) {
+                            erros.push(`Linha ${i + 2}: Data inválida (${dataEmissao})`);
+                            continue;
+                        }
+                        
+                        const novaReceita = {
+                            id: gerarId(),
+                            nomePaciente: nomePaciente,
+                            dataReceita: dataFormatada,
+                            validadeMeses: '3', // Default 3 months
+                            medica: medico,
+                            unidade: unidade,
+                            adicionadoPor: emissor,
+                            dataAdicao: new Date().toISOString()
+                        };
+                        
+                        receitasImportadas.push(novaReceita);
+                    }
+                    
+                    if (receitasImportadas.length === 0) {
+                        alert('❌ Nenhuma receita válida encontrada no arquivo!');
+                        if (erros.length > 0) {
+                            alert('Erros encontrados:\n' + erros.join('\n'));
+                        }
+                        return;
+                    }
+                    
+                    const confirmacao = confirm(`📥 IMPORTAR RECEITAS\n\n✅ ${receitasImportadas.length} receitas válidas encontradas\n❌ ${erros.length} erros encontrados\n\nDeseja importar as receitas válidas?`);
+                    
+                    if (confirmacao) {
+                        // Add to existing recipes
+                        for (const receita of receitasImportadas) {
+                            if (firebaseConnected) {
+                                try {
+                                    const firebaseId = await salvarReceitaFirebase(receita);
+                                    if (firebaseId) {
+                                        receita.id = firebaseId;
+                                    }
+                                } catch (error) {
+                                    console.error('Erro ao salvar no Firebase:', error);
+                                    // Continue with local save
+                                    receitas.unshift(receita);
+                                }
+                            } else {
+                                receitas.unshift(receita);
+                            }
+                        }
+                        
+                        if (!firebaseConnected) {
+                            // Save to localStorage if not using Firebase
+                            await salvarDados();
+                            
+                            // Update UI manually (Firebase does this automatically)
+                            atualizarDashboard();
+                            renderizarReceitas();
+                            atualizarFiltros();
+                        }
+                        
+                        let mensagem = `✅ IMPORTAÇÃO CONCLUÍDA!\n\n📊 ${receitasImportadas.length} receitas importadas com sucesso!`;
+                        
+                        if (erros.length > 0) {
+                            mensagem += `\n\n⚠️ ${erros.length} linhas com erro foram ignoradas.`;
+                        }
+                        
+                        alert(mensagem);
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao importar:', error);
+                    alert('❌ Erro ao processar arquivo! Verifique se é um arquivo CSV válido.');
+                }
+            };
+            
+            // Show format instructions
+            const formato = confirm(`📥 IMPORTAR RECEITAS DO EXCEL\n\nFormato esperado (CSV separado por ponto e vírgula):\nPaciente;Data de Emissão;Vencimento;Status;Médico;Unidade;Emissor\n\nExemplo:\nJoão Silva;15/12/2024;15/03/2025;Válida;Dr. Carlos;Tatuapé;Eduardo\n\nCampos obrigatórios: Paciente, Data de Emissão, Médico\nData no formato: DD/MM/AAAA\n\nDeseja continuar?`);
+            
+            if (formato) {
+                input.click();
+            }
+        }
+        
+
+        
+        // Doctor management system
+        let medicos = []; // Empty list - user will add doctors
+        
+        // Emissor management system
+        let emissores = ['Eduardo', 'Leticia', 'Luciane', 'Matheus', 'Regina', 'Tamares']; // Default emissores
+        
+        // Unidades management system
+        let unidades = ['Tatuapé', 'Santana']; // Default unidades
+        
+        // Validades management system
+        let validades = ['1', '2', '3', '4']; // Default validades (em meses)
+        
+        // Load doctors from localStorage
+        function carregarMedicos() {
+            const medicosStorage = localStorage.getItem('medicos');
+            if (medicosStorage) {
+                medicos = JSON.parse(medicosStorage);
+            }
+            atualizarSelectMedicos();
+        }
+        
+        // Save doctors to localStorage
+        function salvarMedicos() {
+            localStorage.setItem('medicos', JSON.stringify(medicos));
+        }
+        
+        // Update doctor select options
+        function atualizarSelectMedicos() {
+            const select = document.getElementById('medicaSelect');
+            const valorAtual = select.value;
+            
+            select.innerHTML = '<option value="">Selecionar...</option>';
+            medicos.forEach(medico => {
+                const option = document.createElement('option');
+                option.value = medico;
+                option.textContent = medico;
+                select.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (medicos.includes(valorAtual)) {
+                select.value = valorAtual;
+            }
+        }
+        
+        // Doctor registration function
+        window.cadastrarNovoMedico = async function() {
+            const novoMedico = prompt('👨‍⚕️ CADASTRAR NOVO MÉDICO\n\nDigite o nome completo do médico(a):');
+            
+            if (novoMedico && novoMedico.trim()) {
+                const nomeFormatado = novoMedico.trim();
+                
+                // Check if doctor already exists
+                if (!medicos.includes(nomeFormatado)) {
+                    try {
+                        if (firebaseConnected) {
+                            // Add to Firebase
+                            await addDoc(collection(db, 'medicos'), { nome: nomeFormatado });
+                        } else {
+                            // Add to local list
+                            medicos.push(nomeFormatado);
+                            salvarMedicos();
+                            atualizarSelectMedicos();
+                            atualizarFiltros();
+                        }
+                        
+                        // Auto-select the new doctor
+                        document.getElementById('medicaSelect').value = nomeFormatado;
+                        
+                        alert(`✅ MÉDICO CADASTRADO COM SUCESSO!\n\n👨‍⚕️ ${nomeFormatado}\n\n• Adicionado à lista\n• Já selecionado no formulário\n• Pronto para usar!`);
+                    } catch (error) {
+                        console.error('Erro ao cadastrar médico:', error);
+                        alert('Erro ao cadastrar médico. Tente novamente.');
+                    }
+                } else {
+                    alert(`❌ MÉDICO JÁ EXISTE!\n\n"${nomeFormatado}" já está cadastrado na lista.`);
+                }
+            } else if (novoMedico !== null) {
+                alert('❌ Por favor, digite um nome válido!');
+            }
+        }
+        
+        // Delete doctor function
+        window.excluirMedico = function() {
+            if (medicos.length === 0) {
+                alert('❌ Nenhum médico cadastrado para excluir!');
+                return;
+            }
+            
+            let opcoes = '🗑️ EXCLUIR MÉDICO\n\nMédicos cadastrados:\n\n';
+            medicos.forEach((medico, index) => {
+                opcoes += `${index + 1}. ${medico}\n`;
+            });
+            opcoes += '\nDigite o número do médico que deseja excluir:';
+            
+            const escolha = prompt(opcoes);
+            
+            if (escolha && !isNaN(escolha)) {
+                const indice = parseInt(escolha) - 1;
+                
+                if (indice >= 0 && indice < medicos.length) {
+                    const medicoParaExcluir = medicos[indice];
+                    
+                    if (confirm(`❌ CONFIRMAR EXCLUSÃO\n\nTem certeza que deseja excluir:\n\n👨‍⚕️ ${medicoParaExcluir}\n\nEsta ação não pode ser desfeita!`)) {
+                        // Remove from list
+                        medicos.splice(indice, 1);
+                        salvarMedicos();
+                        atualizarSelectMedicos();
+                        atualizarFiltros();
+                        
+                        // Clear selection if deleted doctor was selected
+                        const selectMedico = document.getElementById('medicaSelect');
+                        if (selectMedico.value === medicoParaExcluir) {
+                            selectMedico.value = '';
+                        }
+                        
+                        alert(`✅ MÉDICO EXCLUÍDO!\n\n👨‍⚕️ ${medicoParaExcluir} foi removido da lista.`);
+                    }
+                } else {
+                    alert('❌ Número inválido! Tente novamente.');
+                }
+            } else if (escolha !== null) {
+                alert('❌ Por favor, digite um número válido!');
+            }
+        }
+        
+        // Keep old function for compatibility
+        window.adicionarMedico = window.cadastrarNovoMedico;
+        
+        // Emissor management functions
+        
+        // Load emissores from localStorage
+        function carregarEmissores() {
+            const emissoresStorage = localStorage.getItem('emissores');
+            if (emissoresStorage) {
+                emissores = JSON.parse(emissoresStorage);
+            }
+            atualizarSelectEmissores();
+        }
+        
+        // Save emissores to localStorage
+        function salvarEmissores() {
+            localStorage.setItem('emissores', JSON.stringify(emissores));
+        }
+        
+        // Update emissor select options
+        function atualizarSelectEmissores() {
+            const select = document.getElementById('usuarioAtual');
+            const valorAtual = select.value;
+            
+            select.innerHTML = '<option value="">Selecionar...</option>';
+            emissores.forEach(emissor => {
+                const option = document.createElement('option');
+                option.value = emissor;
+                option.textContent = emissor;
+                select.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (emissores.includes(valorAtual)) {
+                select.value = valorAtual;
+            }
+        }
+        
+        // Emissor registration function
+        window.cadastrarNovoEmissor = async function() {
+            const novoEmissor = prompt('👤 CADASTRAR NOVO EMISSOR\n\nDigite o nome completo do emissor:');
+            
+            if (novoEmissor && novoEmissor.trim()) {
+                const nomeFormatado = novoEmissor.trim();
+                
+                // Check if emissor already exists
+                if (!emissores.includes(nomeFormatado)) {
+                    try {
+                        if (firebaseConnected) {
+                            // Add to Firebase
+                            await addDoc(collection(db, 'emissores'), { nome: nomeFormatado });
+                        } else {
+                            // Add to local list
+                            emissores.push(nomeFormatado);
+                            salvarEmissores();
+                            atualizarSelectEmissores();
+                        }
+                        
+                        // Auto-select the new emissor
+                        document.getElementById('usuarioAtual').value = nomeFormatado;
+                        
+                        alert(`✅ EMISSOR CADASTRADO COM SUCESSO!\n\n👤 ${nomeFormatado}\n\n• Adicionado à lista\n• Já selecionado no formulário\n• Pronto para usar!`);
+                    } catch (error) {
+                        console.error('Erro ao cadastrar emissor:', error);
+                        alert('Erro ao cadastrar emissor. Tente novamente.');
+                    }
+                } else {
+                    alert(`❌ EMISSOR JÁ EXISTE!\n\n"${nomeFormatado}" já está cadastrado na lista.`);
+                }
+            } else if (novoEmissor !== null) {
+                alert('❌ Por favor, digite um nome válido!');
+            }
+        }
+        
+        // Delete emissor function
+        window.excluirEmissor = function() {
+            if (emissores.length === 0) {
+                alert('❌ Nenhum emissor cadastrado para excluir!');
+                return;
+            }
+            
+            let opcoes = '🗑️ EXCLUIR EMISSOR\n\nEmissores cadastrados:\n\n';
+            emissores.forEach((emissor, index) => {
+                opcoes += `${index + 1}. ${emissor}\n`;
+            });
+            opcoes += '\nDigite o número do emissor que deseja excluir:';
+            
+            const escolha = prompt(opcoes);
+            
+            if (escolha && !isNaN(escolha)) {
+                const indice = parseInt(escolha) - 1;
+                
+                if (indice >= 0 && indice < emissores.length) {
+                    const emissorParaExcluir = emissores[indice];
+                    
+                    if (confirm(`❌ CONFIRMAR EXCLUSÃO\n\nTem certeza que deseja excluir:\n\n👤 ${emissorParaExcluir}\n\nEsta ação não pode ser desfeita!`)) {
+                        // Remove from list
+                        emissores.splice(indice, 1);
+                        salvarEmissores();
+                        atualizarSelectEmissores();
+                        
+                        // Clear selection if deleted emissor was selected
+                        const selectEmissor = document.getElementById('usuarioAtual');
+                        if (selectEmissor.value === emissorParaExcluir) {
+                            selectEmissor.value = '';
+                        }
+                        
+                        alert(`✅ EMISSOR EXCLUÍDO!\n\n👤 ${emissorParaExcluir} foi removido da lista.`);
+                    }
+                } else {
+                    alert('❌ Número inválido! Tente novamente.');
+                }
+            } else if (escolha !== null) {
+                alert('❌ Por favor, digite um número válido!');
+            }
+        }
+        
+        // Manage doctors function (for advanced management)
+        window.gerenciarMedicos = function() {
+            const acao = prompt(`👨‍⚕️ GERENCIAR MÉDICOS\n\nMédicos atuais:\n${medicos.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nEscolha uma opção:\n1 - Adicionar médico\n2 - Remover médico\n\nDigite 1 ou 2:`);
+            
+            if (acao === '1') {
+                // Add doctor
+                const novoMedico = prompt('Digite o nome do novo médico(a):');
+                if (novoMedico && novoMedico.trim()) {
+                    const nomeFormatado = novoMedico.trim();
+                    if (!medicos.includes(nomeFormatado)) {
+                        medicos.push(nomeFormatado);
+                        salvarMedicos();
+                        atualizarSelectMedicos();
+                        alert(`✅ Médico(a) "${nomeFormatado}" adicionado(a) com sucesso!`);
+                    } else {
+                        alert('❌ Este médico(a) já existe na lista!');
+                    }
+                }
+            } else if (acao === '2') {
+                // Remove doctor
+                if (medicos.length <= 1) {
+                    alert('❌ Deve haver pelo menos um médico(a) na lista!');
+                    return;
+                }
+                
+                const indice = prompt(`Qual médico(a) remover?\n\n${medicos.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nDigite o número:`);
+                const numeroIndice = parseInt(indice) - 1;
+                
+                if (numeroIndice >= 0 && numeroIndice < medicos.length) {
+                    const medicoRemovido = medicos[numeroIndice];
+                    if (confirm(`Tem certeza que deseja remover "${medicoRemovido}"?`)) {
+                        medicos.splice(numeroIndice, 1);
+                        salvarMedicos();
+                        atualizarSelectMedicos();
+                        alert(`✅ Médico(a) "${medicoRemovido}" removido(a) com sucesso!`);
+                    }
+                } else {
+                    alert('❌ Número inválido!');
+                }
+            }
+        }
+
+        // Configuration modal functions
+        window.abrirConfiguracoes = function() {
+            document.getElementById('modalConfiguracoes').classList.remove('hidden');
+            carregarListasConfiguracoes();
+        }
+        
+        window.fecharConfiguracoes = function() {
+            document.getElementById('modalConfiguracoes').classList.add('hidden');
+        }
+        
+        function carregarListasConfiguracoes() {
+            // Carregar médicos
+            const listaMedicos = document.getElementById('listaMedicos');
+            listaMedicos.innerHTML = medicos.map(medico => `
+                <div class="flex justify-between items-center p-3">
+                    <span class="text-gray-800">${medico}</span>
+                    <button onclick="removerMedicoConfig('${medico}')" 
+                            class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-red-100">
+                        Remover
+                    </button>
+                </div>
+            `).join('') || '<div class="p-3 text-gray-500 text-center">Nenhum médico cadastrado</div>';
+            
+            // Carregar emissores
+            const listaEmissores = document.getElementById('listaEmissores');
+            listaEmissores.innerHTML = emissores.map(emissor => `
+                <div class="flex justify-between items-center p-3">
+                    <span class="text-gray-800">${emissor}</span>
+                    <button onclick="removerEmissorConfig('${emissor}')" 
+                            class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-red-100">
+                        Remover
+                    </button>
+                </div>
+            `).join('');
+            
+            // Carregar unidades
+            const listaUnidades = document.getElementById('listaUnidades');
+            listaUnidades.innerHTML = unidades.map(unidade => `
+                <div class="flex justify-between items-center p-3">
+                    <span class="text-gray-800">${unidade}</span>
+                    <button onclick="removerUnidadeConfig('${unidade}')" 
+                            class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-red-100">
+                        Remover
+                    </button>
+                </div>
+            `).join('');
+            
+            // Carregar validades
+            const listaValidades = document.getElementById('listaValidades');
+            listaValidades.innerHTML = validades.map(validade => `
+                <div class="flex justify-between items-center p-3">
+                    <span class="text-gray-800">${validade} ${validade === '1' ? 'mês' : 'meses'}</span>
+                    <button onclick="removerValidadeConfig('${validade}')" 
+                            class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-red-100">
+                        Remover
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        // Adicionar médico
+        window.adicionarMedicoConfig = function() {
+            const input = document.getElementById('novoMedico');
+            const nome = input.value.trim();
+            
+            if (nome && !medicos.includes(nome)) {
+                medicos.push(nome);
+                input.value = '';
+                carregarListasConfiguracoes();
+            } else if (medicos.includes(nome)) {
+                alert('Este médico já existe!');
+            }
+        }
+        
+        // Remover médico
+        window.removerMedicoConfig = function(nome) {
+            if (confirm(`Remover médico "${nome}"?`)) {
+                medicos = medicos.filter(m => m !== nome);
+                carregarListasConfiguracoes();
+            }
+        }
+        
+        // Adicionar emissor
+        window.adicionarEmissorConfig = function() {
+            const input = document.getElementById('novoEmissor');
+            const nome = input.value.trim();
+            
+            if (nome && !emissores.includes(nome)) {
+                emissores.push(nome);
+                input.value = '';
+                carregarListasConfiguracoes();
+            } else if (emissores.includes(nome)) {
+                alert('Este emissor já existe!');
+            }
+        }
+        
+        // Remover emissor
+        window.removerEmissorConfig = function(nome) {
+            if (confirm(`Remover emissor "${nome}"?`)) {
+                emissores = emissores.filter(e => e !== nome);
+                carregarListasConfiguracoes();
+            }
+        }
+        
+        // Adicionar unidade
+        window.adicionarUnidadeConfig = function() {
+            const input = document.getElementById('novaUnidade');
+            const nome = input.value.trim();
+            
+            if (nome && !unidades.includes(nome)) {
+                unidades.push(nome);
+                input.value = '';
+                carregarListasConfiguracoes();
+            } else if (unidades.includes(nome)) {
+                alert('Esta unidade já existe!');
+            }
+        }
+        
+        // Remover unidade
+        window.removerUnidadeConfig = function(nome) {
+            if (confirm(`Remover unidade "${nome}"?`)) {
+                unidades = unidades.filter(u => u !== nome);
+                carregarListasConfiguracoes();
+            }
+        }
+        
+        // Adicionar validade
+        window.adicionarValidadeConfig = function() {
+            const input = document.getElementById('novaValidade');
+            const meses = input.value.trim();
+            
+            if (meses && !validades.includes(meses) && parseInt(meses) > 0 && parseInt(meses) <= 12) {
+                validades.push(meses);
+                validades.sort((a, b) => parseInt(a) - parseInt(b)); // Ordenar numericamente
+                input.value = '';
+                carregarListasConfiguracoes();
+            } else if (validades.includes(meses)) {
+                alert('Esta validade já existe!');
+            } else if (parseInt(meses) <= 0 || parseInt(meses) > 12) {
+                alert('A validade deve ser entre 1 e 12 meses!');
+            }
+        }
+        
+        // Remover validade
+        window.removerValidadeConfig = function(meses) {
+            if (confirm(`Remover validade de ${meses} ${meses === '1' ? 'mês' : 'meses'}?`)) {
+                validades = validades.filter(v => v !== meses);
+                carregarListasConfiguracoes();
+            }
+        }
+        
+        // Salvar configurações
+        window.salvarConfiguracoes = function() {
+            // Salvar no localStorage
+            localStorage.setItem('medicos', JSON.stringify(medicos));
+            localStorage.setItem('emissores', JSON.stringify(emissores));
+            localStorage.setItem('unidades', JSON.stringify(unidades));
+            localStorage.setItem('validades', JSON.stringify(validades));
+            
+            // Atualizar selects
+            atualizarSelectMedicos();
+            atualizarSelectEmissores();
+            atualizarSelectUnidades();
+            atualizarSelectValidades();
+            atualizarFiltros();
+            
+            // Fechar modal
+            fecharConfiguracoes();
+            
+            alert('✅ Configurações salvas com sucesso!');
+        }
+        
+        // Atualizar select de unidades
+        function atualizarSelectUnidades() {
+            const select = document.getElementById('unidadeSelect');
+            const valorAtual = select.value;
+            
+            select.innerHTML = '<option value="">Selecionar...</option>';
+            unidades.forEach(unidade => {
+                const option = document.createElement('option');
+                option.value = unidade;
+                option.textContent = unidade;
+                select.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (unidades.includes(valorAtual)) {
+                select.value = valorAtual;
+            }
+        }
+        
+        // Atualizar select de validades
+        function atualizarSelectValidades() {
+            const select = document.getElementById('validadeMeses');
+            const valorAtual = select.value;
+            
+            select.innerHTML = '';
+            validades.forEach(validade => {
+                const option = document.createElement('option');
+                option.value = validade;
+                option.textContent = `${validade} ${validade === '1' ? 'mês' : 'meses'}`;
+                select.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (validades.includes(valorAtual)) {
+                select.value = valorAtual;
+            }
+        }
+        
+        // Carregar configurações do localStorage
+        function carregarConfiguracoes() {
+            // Carregar unidades
+            const unidadesStorage = localStorage.getItem('unidades');
+            if (unidadesStorage) {
+                unidades = JSON.parse(unidadesStorage);
+            }
+            
+            // Carregar validades
+            const validadesStorage = localStorage.getItem('validades');
+            if (validadesStorage) {
+                validades = JSON.parse(validadesStorage);
+            }
+            
+            // Carregar versão
+            const versaoStorage = localStorage.getItem('versaoSistema');
+            if (versaoStorage) {
+                document.getElementById('versaoAtual').textContent = versaoStorage;
+                // Atualizar também no header
+                const versaoHeader = document.getElementById('versaoHeader');
+                if (versaoHeader) {
+                    versaoHeader.textContent = versaoStorage;
+                }
+            }
+            
+            // Atualizar selects
+            atualizarSelectUnidades();
+            atualizarSelectValidades();
+        }
+        
+        // Atualizar versão do sistema
+        window.atualizarVersao = function() {
+            const input = document.getElementById('novaVersao');
+            const novaVersao = input.value.trim();
+            
+            if (novaVersao) {
+                // Salvar no localStorage
+                localStorage.setItem('versaoSistema', novaVersao);
+                
+                // Atualizar display na configuração
+                document.getElementById('versaoAtual').textContent = novaVersao;
+                
+                // Atualizar no header
+                const versaoHeader = document.getElementById('versaoHeader');
+                if (versaoHeader) {
+                    versaoHeader.textContent = novaVersao;
+                }
+                
+                input.value = '';
+                alert(`✅ Versão atualizada para: ${novaVersao}`);
+            } else {
+                alert('❌ Por favor, digite uma versão válida!');
+            }
+        }
+
+        // Make functions globally available
+        window.db = db;
+        window.firebaseConnected = () => firebaseConnected;
+        window.salvarDados = salvarDados;
+        window.atualizarDashboard = atualizarDashboard;
+        window.renderizarReceitas = renderizarReceitas;
+        window.atualizarFiltros = atualizarFiltros;
+        window.atualizarSelectMedicos = atualizarSelectMedicos;
+        window.atualizarSelectEmissores = atualizarSelectEmissores;
+        
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'966539f763a601b3',t:'MTc1MzcxNDYyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
