@@ -318,7 +318,8 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                    <button onclick="removerReceita('${receita.id}')"
+                                     class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
                                         Excluir
                                     </button>
                                 </td>
@@ -343,7 +344,8 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                    <button onclick="removerReceita('${receita.id}')"
+                                     class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
                                         Excluir
                                     </button>
                                 </td>
@@ -368,7 +370,8 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                    <button onclick="removerReceita('${receita.id}')"
+                                     class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
                                         Excluir
                                     </button>
                                 </td>
@@ -393,7 +396,8 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                    <button onclick="removerReceita('${receita.id}')"
+                                     class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
                                         Excluir
                                     </button>
                                 </td>
@@ -418,7 +422,8 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <button class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
+                                    <button onclick="removerReceita('${receita.id}')"
+                                     class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-100">
                                         Excluir
                                     </button>
                                 </td>
@@ -960,20 +965,14 @@
             
             if (receitasParaRenderizar.length === 0) {
                 tabela.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">Nenhuma receita encontrada.</td></tr>';
+                renderizarPaginacao(0);
                 return;
             }
-            
-            // Ordenar receitas: as mais próximas do vencimento primeiro
-            const receitasOrdenadas = [...receitasParaRenderizar].sort((a, b) => {
-                const dataVencA = calcularDataVencimento(a.dataReceita, a.validadeMeses);
-                const dataVencB = calcularDataVencimento(b.dataReceita, b.validadeMeses);
-                return dataVencA - dataVencB;
-            });
             
             // Paginação: calcular o índice inicial e final
             const inicio = (paginaAtual - 1) * RECEITAS_POR_PAGINA;
             const fim = inicio + RECEITAS_POR_PAGINA;
-            const receitasDaPagina = receitasOrdenadas.slice(inicio, fim);
+            const receitasDaPagina = receitasParaRenderizar.slice(inicio, fim);
 
             tabela.innerHTML = receitasDaPagina.map((receita) => {
                 const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
@@ -1047,8 +1046,36 @@
             paginacaoDiv.appendChild(createButton('Anterior', paginaAtual - 1, paginaAtual === 1));
 
             // Botões de página
-            for (let i = 1; i <= totalPaginas; i++) {
+            const maxButtons = 5;
+            let startPage = Math.max(1, paginaAtual - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPaginas, startPage + maxButtons - 1);
+
+            if (endPage - startPage + 1 < maxButtons) {
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+
+            if (startPage > 1) {
+                paginacaoDiv.appendChild(createButton('1', 1, false, false));
+                if (startPage > 2) {
+                    const dots = document.createElement('span');
+                    dots.textContent = '...';
+                    dots.className = 'px-2 py-1';
+                    paginacaoDiv.appendChild(dots);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
                 paginacaoDiv.appendChild(createButton(i, i, false, i === paginaAtual));
+            }
+
+            if (endPage < totalPaginas) {
+                if (endPage < totalPaginas - 1) {
+                    const dots = document.createElement('span');
+                    dots.textContent = '...';
+                    dots.className = 'px-2 py-1';
+                    paginacaoDiv.appendChild(dots);
+                }
+                paginacaoDiv.appendChild(createButton(totalPaginas, totalPaginas, false, false));
             }
 
             // Botão "Próximo"
@@ -1358,48 +1385,67 @@
             const filtroUnidade = document.getElementById('filtroUnidade').value;
             const filtroDataInicial = document.getElementById('filtroDataInicial').value;
             const filtroDataFinal = document.getElementById('filtroDataFinal').value;
-
-            receitasFiltradas = receitas.filter(receita => {
-                // Filter by name
+        
+            // Cria uma cópia da lista de receitas para filtrar e ordenar
+            let listaFiltrada = [...receitas].filter(receita => {
+                // Filtro por nome do paciente
                 if (filtroNome && !receita.nomePaciente.toLowerCase().includes(filtroNome)) {
                     return false;
                 }
-
-                // Filter by status
-                if (filtroStatus) {
-                    const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
-                    if (status !== filtroStatus) {
-                        return false;
-                    }
+        
+                // Filtro por status
+                const status = calcularStatus(receita.dataReceita, receita.validadeMeses);
+                if (filtroStatus && status !== filtroStatus) {
+                    return false;
                 }
-
-                // Filter by medico
+        
+                // Filtro por médico
                 if (filtroMedico && receita.medica !== filtroMedico) {
                     return false;
                 }
-
-                // Filter by unidade
+        
+                // Filtro por unidade
                 if (filtroUnidade && receita.unidade !== filtroUnidade) {
                     return false;
                 }
-
-                // Filter by date range
-                if (filtroDataInicial) {
-                    if (receita.dataReceita < filtroDataInicial) {
-                        return false;
-                    }
+        
+                // Filtro por intervalo de datas
+                if (filtroDataInicial && receita.dataReceita < filtroDataInicial) {
+                    return false;
                 }
-
-                if (filtroDataFinal) {
-                    if (receita.dataReceita > filtroDataFinal) {
-                        return false;
-                    }
+                if (filtroDataFinal && receita.dataReceita > filtroDataFinal) {
+                    return false;
                 }
-
+        
                 return true;
             });
-            
-            paginaAtual = 1; // Reset to first page after filtering
+        
+            // Aplica a ordenação com base no filtro de status ou no padrão
+            listaFiltrada.sort((a, b) => {
+                const statusA = calcularStatus(a.dataReceita, a.validadeMeses);
+                const statusB = calcularStatus(b.dataReceita, b.validadeMeses);
+                const dataVencA = calcularDataVencimento(a.dataReceita, a.validadeMeses);
+                const dataVencB = calcularDataVencimento(b.dataReceita, b.validadeMeses);
+                const dataAdicaoA = new Date(a.dataAdicao);
+                const dataAdicaoB = new Date(b.dataAdicao);
+        
+                if (filtroStatus === 'vencida') {
+                    return dataVencA - dataVencB; // Vencimento mais antigo primeiro
+                }
+                if (filtroStatus === 'vencendo') {
+                    return dataVencA - dataVencB; // Vencimento mais próximo primeiro
+                }
+                // Para "Todos" e "Válidas", a ordem é por adição mais recente
+                if (filtroStatus === 'valida' || !filtroStatus) {
+                    return dataAdicaoB - dataAdicaoA;
+                }
+        
+                return 0; // Caso de fallback, mas a lógica acima já cobre todos os casos
+            });
+        
+            // Atualiza a variável global de receitas filtradas e reseta a página para 1
+            receitasFiltradas = listaFiltrada;
+            paginaAtual = 1;
             renderizarReceitas(receitasFiltradas);
         }
 
@@ -1856,7 +1902,7 @@
                 return;
             }
 
-            let opcoes = '🗑️ EXCLUIR MÉDICO\n\nMédicos cadastrados:\n\n';
+            let opcoes = '🗑️ EXCLUIR MÉDICO\n\nEmissores cadastrados:\n\n';
             medicos.forEach((medico, index) => {
                 opcoes += `${index + 1}. ${medico}\n`;
             });
@@ -2039,6 +2085,7 @@
 
                 if (numeroIndice >= 0 && numeroIndice < medicos.length) {
                     const medicoRemovido = medicos[numeroIndice];
+
                     if (confirm(`Tem certeza que deseja remover "${medicoRemovido}"?`)) {
                         medicos.splice(numeroIndice, 1);
                         salvarMedicos();
@@ -2215,7 +2262,7 @@
             atualizarSelectEmissores();
             atualizarSelectUnidades();
             atualizarSelectValidades();
-            atualizarFiltros();
+            aplicarFiltros();
 
             // Fechar modal
             fecharConfiguracoes();
