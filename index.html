@@ -710,6 +710,7 @@
                 atualizarSelectMedicos();
                 atualizarSelectEmissores();
                 atualizarFiltros();
+                atualizarVersao();
 
                 console.log('✅ Dados carregados do Firebase:', receitas.length, 'receitas');
 
@@ -745,6 +746,7 @@
             atualizarDashboard();
             aplicarFiltros(); // Initial render with pagination
             atualizarFiltros();
+            atualizarVersao();
         }
 
         // Save data to Firebase or localStorage
@@ -834,8 +836,8 @@
 
             const diasParaVencer = Math.ceil((dataVencimento - hoje) / (1000 * 60 * 60 * 24));
 
-            if (diasParaVencer < 0) return 'vencida';
-            if (diasParaVencer <= 7) return 'vencendo';
+            if (diasParaVencer < -15) return 'vencida';
+            if (diasParaVencer <= 15) return 'vencendo';
             return 'valida';
         }
         
@@ -2340,26 +2342,22 @@
 
         // Atualizar versão do sistema
         window.atualizarVersao = function() {
-            const input = document.getElementById('novaVersao');
-            const novaVersao = input.value.trim();
+            const dataHoraAtual = new Date().toLocaleString('pt-BR');
+            const novaVersao = `Versão Gemini ${dataHoraAtual}`;
 
-            if (novaVersao) {
-                // Salvar no localStorage
-                localStorage.setItem('versaoSistema', novaVersao);
+            // Salvar no localStorage
+            localStorage.setItem('versaoSistema', novaVersao);
 
-                // Atualizar display na configuração
-                document.getElementById('versaoAtual').textContent = novaVersao;
+            // Atualizar display na configuração
+            const versaoAtualElement = document.getElementById('versaoAtual');
+            if (versaoAtualElement) {
+                versaoAtualElement.textContent = novaVersao;
+            }
 
-                // Atualizar no header
-                const versaoHeader = document.getElementById('versaoHeader');
-                if (versaoHeader) {
-                    versaoHeader.textContent = novaVersao;
-                }
-
-                input.value = '';
-                alert(`✅ Versão atualizada para: ${novaVersao}`);
-            } else {
-                alert('❌ Por favor, digite uma versão válida!');
+            // Atualizar no header
+            const versaoHeader = document.getElementById('versaoHeader');
+            if (versaoHeader) {
+                versaoHeader.textContent = novaVersao;
             }
         }
 
