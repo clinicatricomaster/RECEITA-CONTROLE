@@ -710,7 +710,7 @@
                 atualizarSelectMedicos();
                 atualizarSelectEmissores();
                 atualizarFiltros();
-                atualizarVersao();
+                carregarVersao(); // Carrega a versão na inicialização
 
                 console.log('✅ Dados carregados do Firebase:', receitas.length, 'receitas');
 
@@ -746,7 +746,7 @@
             atualizarDashboard();
             aplicarFiltros(); // Initial render with pagination
             atualizarFiltros();
-            atualizarVersao();
+            carregarVersao(); // Carrega a versão na inicialização
         }
 
         // Save data to Firebase or localStorage
@@ -2268,6 +2268,7 @@
 
             // Fechar modal
             fecharConfiguracoes();
+            atualizarVersao(); // Apenas atualiza a versão ao salvar configurações
 
             alert('✅ Configurações salvas com sucesso!');
         }
@@ -2325,25 +2326,38 @@
             }
 
             // Carregar versão
-            const versaoStorage = localStorage.getItem('versaoSistema');
-            if (versaoStorage) {
-                document.getElementById('versaoAtual').textContent = versaoStorage;
-                // Atualizar também no header
-                const versaoHeader = document.getElementById('versaoHeader');
-                if (versaoHeader) {
-                    versaoHeader.textContent = versaoStorage;
-                }
-            }
+            carregarVersao();
 
             // Atualizar selects
             atualizarSelectUnidades();
             atualizarSelectValidades();
         }
 
-        // Atualizar versão do sistema
+        // Carregar versão do sistema
+        function carregarVersao() {
+            const versaoStorage = localStorage.getItem('versaoSistema');
+            const versaoHeader = document.getElementById('versaoHeader');
+            const versaoAtualElement = document.getElementById('versaoAtual');
+
+            if (versaoStorage) {
+                if (versaoAtualElement) versaoAtualElement.textContent = versaoStorage;
+                if (versaoHeader) versaoHeader.textContent = versaoStorage;
+            } else {
+                const defaultVersion = `Versão Gemini 1.0 (${new Date().toLocaleDateString('pt-BR')})`;
+                if (versaoAtualElement) versaoAtualElement.textContent = defaultVersion;
+                if (versaoHeader) versaoHeader.textContent = defaultVersion;
+            }
+        }
+
+        // Atualizar versão do sistema manualmente
         window.atualizarVersao = function() {
-            const dataHoraAtual = new Date().toLocaleString('pt-BR');
-            const novaVersao = `Versão Gemini ${dataHoraAtual}`;
+            const input = document.getElementById('novaVersao');
+            let novaVersao = input.value.trim();
+
+            if (!novaVersao) {
+                const dataHoraAtual = new Date().toLocaleString('pt-BR');
+                novaVersao = `Versão Gemini ${dataHoraAtual}`;
+            }
 
             // Salvar no localStorage
             localStorage.setItem('versaoSistema', novaVersao);
@@ -2359,6 +2373,9 @@
             if (versaoHeader) {
                 versaoHeader.textContent = novaVersao;
             }
+
+            input.value = '';
+            alert(`✅ Versão atualizada para: ${novaVersao}`);
         }
 
         // Make functions globally available
